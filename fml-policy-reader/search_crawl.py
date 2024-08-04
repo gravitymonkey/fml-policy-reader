@@ -90,7 +90,7 @@ def setup():
     print(f"found {len(company_data)} viable company URLs")
     # we'll make a directory for each company, if we need it
     new_setup = 0
-    for company in company_data.items():
+    for company in company_data:
         os.makedirs(f"../assets/{company}", exist_ok=True)
         # check if the file exists, if no, add it from the source
         if not os.path.exists(f"../assets/{company}/company_data.json"):
@@ -98,6 +98,8 @@ def setup():
                 f.write(json.dumps(company_data[company]))
                 new_setup += 1
     print(f"Wrote {new_setup} new company data files")
+    # make a directory for pages
+    os.makedirs(f"../assets/cache", exist_ok=True)
 
 def process():
     """
@@ -112,9 +114,11 @@ def process():
 
     for root, _, files in os.walk("../assets"):
         if "company_data.json" in files:
-            with open(f"{root}/company_data.json", "r", encoding="utf-8") as f:
-                try:
+            try:
+                data = None
+                with open(f"{root}/company_data.json", "r", encoding="utf-8") as f:
                     data = json.load(f)
+                if data:
                     complete = False
                     if 'status' in data:
                         if data['status'] == "complete":
@@ -122,15 +126,18 @@ def process():
                     if not complete:
                         response = _process_url(data, driver)
                         if "crawl" not in data:
-                            data["crawl"] = []
+                            data["crawl"] = []                            
                         data["crawl"].append(response)
                         data["status"] = "complete"
+
                         with open(f"{root}/company_data.json", "w", encoding="utf-8") as f:
+                            print(type(data))
+                            print(data)
                             f.write(json.dumps(data))
                     else:
                         print("Already crawled")
-                except Exception as e:
-                    print(f"An error occurred while processing company data: {e}")
+            except Exception as e:
+                print(f"An error occurred while processing company data: {e}")
         else:
             print("No company data file found")
     driver.quit()
