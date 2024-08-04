@@ -59,6 +59,8 @@ def _process_url(data, driver):
     url = _extract_tld(data["companies"][0]['url'])
     return _query_google(url, driver)
 
+def _is_captcha(page_source):
+    return "captcha" in page_source.lower() or "our systems have detected unusual traffic" in page_source.lower()
 
 def _query_google(url, driver):    
     log = {}
@@ -71,9 +73,16 @@ def _query_google(url, driver):
         driver.get(goog_url)
                 
         # Wait for results to load
-        time.sleep(15)
+        time.sleep(30)
         print("Results loaded")
         page_source = driver.page_source
+        if _is_captcha(page_source):
+            print("CAPTCHA detected. Exiting.")
+            log["error"] = "CAPTCHA detected"
+            driver.quit()
+            exit(1)
+        
+
         log["page_source"] = page_source
     except Exception as e:
         print(f"An error occurred while querying Google: {e}")
@@ -112,8 +121,12 @@ def process():
     # Initialize the Chrome driver with the Service object
     driver = webdriver.Chrome(service=service)
 
+    count_crawled = 0
+    total_crawled = 0
+
     for root, _, files in os.walk("../assets"):
         if "company_data.json" in files:
+            
             try:
                 data = None
                 with open(f"{root}/company_data.json", "r", encoding="utf-8") as f:
@@ -131,15 +144,15 @@ def process():
                         data["status"] = "complete"
 
                         with open(f"{root}/company_data.json", "w", encoding="utf-8") as f:
-                            print(type(data))
-                            print(data)
                             f.write(json.dumps(data))
-                    else:
-                        print("Already crawled")
+                        count_crawled += 1
+                    total_crawled += 1
+
             except Exception as e:
                 print(f"An error occurred while processing company data: {e}")
         else:
             print("No company data file found")
+        print(f"{count_crawled}:{total_crawled}")
     driver.quit()
 
 if __name__ == "__main__":
